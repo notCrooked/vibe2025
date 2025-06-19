@@ -26,19 +26,27 @@ async function retrieveListItems() {
     }
 }
 
+async function updateItemInDb(id, newText) {
+    const connection = await mysql.createConnection(dbConfig);
+    const query = 'UPDATE items SET text = ? WHERE id = ?';
+    await connection.execute(query, [newText, id]);
+    await connection.end();
+}
+
 // Генерация HTML строк таблицы с кнопкой удаления, вызывающей deleteItem(id)
 async function getHtmlRows() {
     const todoItems = await retrieveListItems();
 
-    return todoItems
-        .map((item, idx) => `
-            <tr>
-                <td>${idx + 1}</td>                     <!-- корректный номер -->
-                <td>${item.text}</td>
-                <td><button onclick="deleteItem(${item.id})">×</button></td>
-            </tr>
-        `)
-        .join('');
+    return todoItems.map((item, idx) => `
+    <tr>
+        <td>${idx + 1}</td>
+        <td>${item.text}</td>
+        <td>
+            <button onclick="editItem(${item.id}, '${item.text.replace(/'/g, "\\'")}')">Edit</button>
+            <button onclick="deleteItem(${item.id})">×</button>
+        </td>
+    </tr>
+`).join('');
 }
 
 async function addItemToDb(text) {
@@ -109,6 +117,30 @@ async function handleRequest(req, res) {
                 } else {
                     res.writeHead(400, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ status: 'error', message: 'No id provided' }));
+                }
+            } catch (err) {
+                console.error(err);
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'error', message: 'Server error' }));
+            }
+        });
+    } else if (req.url === '/update-item' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => {
+            body += chunk.toString();
+        });
+        req.on('end', async () => {
+            try {
+                const params = new URLSearchParams(body);
+                const id = params.get('id');
+                const newText = params.get('text');
+                if (id && newText && newText.trim()) {
+                    await updateItemInDb(id, newText.trim());
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ status: 'ok' }));
+                } else {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ status: 'error', message: 'Missing id or text' }));
                 }
             } catch (err) {
                 console.error(err);

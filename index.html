@@ -133,6 +133,29 @@
             console.error(err);
         }
     }
+      async function editItem(id, oldText) {
+        const newText = prompt('Edit item:', oldText);
+        if (newText !== null && newText.trim()) {
+            try {
+                const response = await fetch('/update-item', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: `id=${encodeURIComponent(id)}&text=${encodeURIComponent(newText)}`
+                });
+                const result = await response.json();
+                if (result.status === 'ok') {
+                    location.reload();
+                } else {
+                    alert('Ошибка при обновлении: ' + result.message);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Ошибка сервера');
+            }
+        }
+    }
 </script>
 
 </body>
