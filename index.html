@@ -83,14 +83,33 @@
         });
     }
 
-    function addItem() {
+       async function addItem() {
         const newItemInput = document.getElementById('newItem');
         const newItemText = newItemInput.value.trim();
 
-        if (newItemText) {
-            items.push({ id: nextId++, text: newItemText });
-            newItemInput.value = '';
-            renderList();
+        if (!newItemText) return;
+
+        try {
+            const response = await fetch('/add-item', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: `text=${encodeURIComponent(newItemText)}`
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'ok') {
+                newItemInput.value = '';
+                // Перезагружаем страницу, чтобы обновить список
+                location.reload();
+            } else {
+                alert('Ошибка: ' + result.message);
+            }
+        } catch (err) {
+            alert('Ошибка сети');
+            console.error(err);
         }
     }
 
