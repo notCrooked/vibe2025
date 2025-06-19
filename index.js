@@ -3,6 +3,11 @@ const fs     = require('fs');
 const path   = require('path');
 const mysql  = require('mysql2/promise');
 const cookie = require('cookie');
+require('dotenv').config();
+const axios = require('axios');
+
+console.log('TOKEN:', process.env.TELEGRAM_BOT_TOKEN);
+console.log('CHAT ID:', process.env.TELEGRAM_CHAT_ID); //отладка
 
 const PORT = 3000;
 
@@ -48,6 +53,28 @@ async function updateItemInDb(id, newText) {
   const conn = await mysql.createConnection(dbConfig);
   await conn.execute('UPDATE items SET text = ? WHERE id = ?', [newText, id]);
   await conn.end();
+}
+
+
+async function notifyTelegram() {
+  try {
+    const items = await retrieveListItems();
+    const time = new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
+
+    const listText = items.length
+      ? items.map((item, i) => `${i + 1}. ${item.text}`).join('\n')
+      : 'Список пуст.';
+
+    const message = `📋 *Актуальный список задач:*\n\n${listText}\n\n🕒 Обновлено: ${time}`;
+
+    await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      chat_id: process.env.TELEGRAM_CHAT_ID,
+      text: message,
+      parse_mode: 'Markdown'
+    });
+  } catch (err) {
+    console.error('Ошибка при отправке в Telegram:', err.message);
+  }
 }
 
 // таблица → строки HTML
@@ -140,7 +167,10 @@ async function handleRequest(req, res) {
   if (req.url === '/add-item' && req.method === 'POST') {
     handleBody(req, res, async params => {
       const text = params.get('text');
-      if (text && text.trim()) await addItemToDb(text.trim());
+      if (text && text.trim()) {
+      await addItemToDb(text.trim());
+      await notifyTelegram(); // 📬 Отправка уведомления в Telegram
+    }
       resJson(res, { status: 'ok' });
     });
     return;
@@ -150,7 +180,10 @@ async function handleRequest(req, res) {
   if (req.url === '/delete-item' && req.method === 'POST') {
     handleBody(req, res, async params => {
       const id = params.get('id');
-      if (id) await deleteItemFromDb(id);
+      if (id) {
+        await deleteItemFromDb(id);
+        await notifyTelegram();
+    }
       resJson(res, { status: 'ok' });
     });
     return;
@@ -161,7 +194,10 @@ async function handleRequest(req, res) {
     handleBody(req, res, async params => {
       const id = params.get('id');
       const text = params.get('text');
-      if (id && text && text.trim()) await updateItemInDb(id, text.trim());
+      if (id && text && text.trim()) { 
+        await updateItemInDb(id, text.trim()); 
+        await notifyTelegram();
+    }
       resJson(res, { status: 'ok' });
     });
     return;
