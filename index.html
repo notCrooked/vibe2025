@@ -113,9 +113,25 @@
         }
     }
 
-    function removeItem(index) {
-        items.splice(index, 1);
-        renderList();
+     async function deleteItem(id) {
+        try {
+            const response = await fetch('/delete-item', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `id=${encodeURIComponent(id)}`
+            });
+            const result = await response.json();
+            if (result.status === 'ok') {
+                location.reload();
+            } else {
+                alert('Ошибка при удалении: ' + result.message);
+            }
+        } catch (err) {
+            alert('Ошибка запроса на сервер');
+            console.error(err);
+        }
     }
 </script>
 
